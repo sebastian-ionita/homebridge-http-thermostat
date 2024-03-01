@@ -22,18 +22,19 @@ export = (api: API) => {
 class HTTPThermostat implements AccessoryPlugin {
 	private readonly log: Logging;
 	private readonly name: string;
-	private readonly ip: string;
+	private readonly url: string;
 
 	private readonly thermostatService: Service;
 	private readonly informationService: Service;
 
-	private temperature = 21.5;
+	private targetTemperature = 21.5;
+	private currentTemperature = 21.5;
 	private display_units = hap.Characteristic.TemperatureDisplayUnits.CELSIUS;
 
 	constructor(log: Logging, config: AccessoryConfig, _api: API) {
 		this.log = log;
 		this.name = config.name;
-		this.ip = config.ip;
+		this.url = config.url;
 
 		// Configure Thermostat Service
 		// TargetTemperature
@@ -42,8 +43,8 @@ class HTTPThermostat implements AccessoryPlugin {
 			.getCharacteristic(hap.Characteristic.TargetTemperature)
 			.setProps({
 				minValue: 5,
-				maxValue: 25,
-				minStep: 0.5,
+				maxValue: 26,
+				minStep: 1,
 			})
 			.on(CharacteristicEventTypes.GET, this.getTemperature.bind(this))
 			.on(CharacteristicEventTypes.SET, this.setTemperature.bind(this));
@@ -89,9 +90,9 @@ class HTTPThermostat implements AccessoryPlugin {
 
 		// Configure Information Service
 		this.informationService = new hap.Service.AccessoryInformation()
-			.setCharacteristic(hap.Characteristic.Manufacturer, 'Piets')
+			.setCharacteristic(hap.Characteristic.Manufacturer, 'Sebako')
 			.setCharacteristic(hap.Characteristic.Model, 'HTTP-Thermostat')
-			.setCharacteristic(hap.Characteristic.SerialNumber, this.ip);
+			.setCharacteristic(hap.Characteristic.SerialNumber, this.url);
 
 		log.info('Thermostat finished initializing!');
 	}
@@ -105,30 +106,31 @@ class HTTPThermostat implements AccessoryPlugin {
 		callback: CharacteristicGetCallback
 	): Promise<void> {
 		// Immediatly respond with potentially stale value
-		const old_temperature = this.temperature;
-		callback(null, this.temperature);
+		const old_temperature = this.targetTemperature;
+		callback(null, this.targetTemperature);
 
 		try {
-			const json = await axios.get(`http://${this.ip}/`);
-			if (json && json.data.temperature) {
-				this.temperature = json.data.temperature;
+			const json = await axios.get(`${this.url}`);
+			if (json && json.data.targetTemperature) {
+				this.targetTemperature = json.data.targetTemperature;
+				this.currentTemperature = json.data.currentTemperature;
 				this.log.debug(
-					`updated cached temperature: ${this.temperature}`
+					`updated cached temperature: target: ${this.targetTemperature}; current: ${this.currentTemperature}`
 				);
 			}
 		} catch (e) {
 			this.log.error(`${e}`);
 		} finally {
 			// Update Characteristics
-			if (old_temperature !== this.temperature) {
+			if (old_temperature !== this.targetTemperature) {
 				this.thermostatService
 					.getCharacteristic(hap.Characteristic.TargetTemperature)
-					.updateValue(this.temperature);
+					.updateValue(this.targetTemperature);
 				this.thermostatService
 					.getCharacteristic(hap.Characteristic.CurrentTemperature)
-					.updateValue(this.temperature);
+					.updateValue(this.currentTemperature);
 				this.log.debug(
-					`updating characteristic value with cached temperature: ${this.temperature}`
+					`updating characteristic value with cached temperature: ${this.targetTemperature}${this.targetTemperature}; current: ${this.currentTemperature}`
 				);
 			}
 		}
@@ -140,20 +142,20 @@ class HTTPThermostat implements AccessoryPlugin {
 		callback: CharacteristicSetCallback
 	): Promise<void> {
 		try {
-			this.temperature = value as number;
+			this.targetTemperature = value as number;
 
-			await axios.post(`http://${this.ip}/`, {
-				temperature: this.temperature,
+			await axios.post(this.url, {
+				temperature: this.targetTemperature,
 			});
 
 			this.thermostatService
 				.getCharacteristic(hap.Characteristic.TargetTemperature)
-				.updateValue(this.temperature);
+				.updateValue(this.targetTemperature);
 			this.thermostatService
 				.getCharacteristic(hap.Characteristic.CurrentTemperature)
-				.updateValue(this.temperature);
+				.updateValue(this.currentTemperature);
 
-			this.log.debug(`Set Temperature to ${this.temperature}`);
+			this.log.debug(`Set Temperature to ${this.targetTemperature}`);
 		} catch (e) {
 			this.log.error(`${e}`);
 		} finally {

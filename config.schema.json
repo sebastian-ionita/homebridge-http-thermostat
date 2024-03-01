@@ -11,10 +11,10 @@
 				"default": "Central Heating",
 				"required": true
 			},
-			"ip": {
-				"title": "IP",
+			"url": {
+				"title": "Url",
 				"type": "string",
-				"default": "192.168.1.1",
+				"default": "http://192.168.1.1",
 				"required": true
 			}
 		}
