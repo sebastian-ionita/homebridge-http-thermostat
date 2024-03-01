@@ -15,16 +15,25 @@ The plugin can be used for example with a simple Arduino sketch controlling a se
     {
         "accessory": "http-thermostat",
         "name": "Central Heating",
-        "ip": "192.168.1.1"
+        "url": "https://home.com"
     }
 ```
 
 ## JSON Format
 
-The JSON sent and received via this plugin has the following format:
+The JSON sent via this plugin has the following format:
 
 ```
     {
         "temperature": 21.5
+    }
+```
+
+The JSON received via this plugin has the following format:
+
+```
+    {
+        "targetTemperature": 21.5,
+        "currentTemperature": 21.5
     }
 ```
